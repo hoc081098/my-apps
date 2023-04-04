@@ -23,9 +23,25 @@ android {
         }
     }
 
+    signingConfigs {
+        release {
+            storeFile rootProject.file("keystore/debug")
+            storePassword "android"
+            keyAlias "key0"
+            keyPassword "android"
+
+            // Optional, specify signing versions used
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+    }
+
     buildTypes {
         release {
-            minifyEnabled false
+            signingConfig signingConfigs.release
+
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
