@@ -45,6 +45,7 @@ suspend fun getUsageStatsList(
       val drawable = packageInfo?.applicationInfo?.loadIcon(packageManager)
 
       AppInfo(
+        id = "$packageName-$lastTimeUsed-$lastTimeVisible",
         packageName = packageName,
         name = label,
         icon = drawable,

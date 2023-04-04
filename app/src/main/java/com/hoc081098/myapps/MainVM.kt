@@ -34,18 +34,15 @@ import java.time.Clock
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-sealed interface AppListItem
-
 data class AppInfo(
+  val id: String,
   val packageName: String,
   val name: String?,
   val icon: Drawable?,
   val lastTimeUsed: LocalDateTime,
   val lastTimeVisible: LocalDateTime,
-) : AppListItem
+)
 
-
-data class Header(val day: LocalDate) : AppListItem
 
 class MainVM(
   private val application: Application,

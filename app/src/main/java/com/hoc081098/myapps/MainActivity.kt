@@ -175,7 +175,7 @@ private fun ListContent(
 
       items(
         items = v,
-        key = { it.packageName }
+        key = AppInfo::id,
       ) { listItem ->
         AppInfoItem(
           modifier = Modifier.fillParentMaxWidth(),
