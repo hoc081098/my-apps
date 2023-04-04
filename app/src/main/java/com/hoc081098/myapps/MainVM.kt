@@ -14,7 +14,6 @@ import androidx.core.content.getSystemService
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -31,25 +30,27 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.time.Clock
-import java.time.Duration
-import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.ZoneId
+
+sealed interface AppListItem
+
+data class AppInfo(
+  val packageName: String,
+  val name: String?,
+  val icon: Drawable?,
+  val lastTimeUsed: LocalDateTime,
+  val lastTimeVisible: LocalDateTime,
+) : AppListItem
+
+
+data class Header(val day: LocalDate) : AppListItem
 
 class MainVM(
   private val application: Application,
   private val savedStateHandle: SavedStateHandle,
 ) : AndroidViewModel(application) {
-  data class AppInfo(
-    val packageName: String,
-    val name: String,
-    val icon: Drawable,
-    val lastTimeUsed: LocalDateTime,
-    val lastTimeVisible: LocalDateTime,
-  )
-
   private val clock = Clock.systemUTC()!!
   private val usm by lazy { application.getSystemService<UsageStatsManager>()!! }
   private val packageManager get() = application.packageManager!!
@@ -57,13 +58,19 @@ class MainVM(
   private val loadApps = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
   private val _searchTerm = MutableStateFlow(savedStateHandle.get<String?>(SEARCH_TERM_KEY).orEmpty())
 
-  val filteredAppInfoList: StateFlow<List<AppInfo>?>
+  val filteredAppInfoList: StateFlow<Map<LocalDate, List<AppInfo>>?>
   val searchTerm: StateFlow<String> = _searchTerm.asStateFlow()
 
   init {
     val appInfoListFlow = loadApps
       .flatMapLatest {
-        ::getUsageStatsList
+        suspend {
+          getUsageStatsList(
+            usm = usm,
+            packageManager = packageManager,
+            clock = clock
+          )
+        }
           .asFlow()
           .map {
             @Suppress("USELESS_CAST")
@@ -85,15 +92,19 @@ class MainVM(
         appInfoList
       } else {
         appInfoList?.filter {
-          it.name.contains(searchTerm, ignoreCase = true)
+          it.name?.contains(searchTerm, ignoreCase = true) == true
               || it.packageName.contains(searchTerm, ignoreCase = true)
         }
       }
-    }.stateIn(
-      scope = viewModelScope,
-      started = SharingStarted.Eagerly,
-      initialValue = null,
-    )
+    }
+      .map { appInfos ->
+        appInfos?.groupBy { it.lastTimeUsed.toLocalDate() }
+      }
+      .stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = null,
+      )
   }
 
   fun getInstalledApps() {
@@ -103,36 +114,6 @@ class MainVM(
   fun onSearchTermChange(value: String) {
     _searchTerm.value = value
     savedStateHandle[SEARCH_TERM_KEY] = value
-  }
-
-  private suspend fun getUsageStatsList(): List<AppInfo> = withContext(Dispatchers.IO) {
-    val startInstant = Instant.now(clock)
-    val endInstant = startInstant.minus(Duration.ofDays(14))
-
-    val endTime = startInstant.toEpochMilli()
-    val startTime = endInstant.toEpochMilli()
-
-    usm
-      .queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startTime, endTime)
-      .mapNotNull {
-        val packageName = it.packageName
-        val packageInfo = packageManager.getPackageInfoCompat(packageName)
-
-        val lastTimeUsed = Instant.ofEpochMilli(it.lastTimeUsed)!!
-        val lastTimeVisible = Instant.ofEpochMilli(it.lastTimeVisible)!!
-        val label = packageInfo.applicationInfo.loadLabel(packageManager).toString()
-        val drawable = packageInfo.applicationInfo.loadIcon(packageManager)!!
-
-        AppInfo(
-          packageName = packageName,
-          name = label,
-          icon = drawable,
-          lastTimeUsed = lastTimeUsed.atZone(ZoneId.systemDefault()).toLocalDateTime(),
-          lastTimeVisible = lastTimeVisible.atZone(ZoneId.systemDefault()).toLocalDateTime(),
-        )
-      }
-      .sortedByDescending { it.lastTimeUsed }
-      .also { Log.d(TAG, "Result: ${it.size}") }
   }
 
   private companion object {

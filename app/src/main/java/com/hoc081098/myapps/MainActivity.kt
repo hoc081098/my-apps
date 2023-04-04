@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 
 package com.hoc081098.myapps
 
@@ -9,11 +9,14 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.consumedWindowInsets
@@ -21,7 +24,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -39,6 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontStyle
@@ -47,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.getSystemService
 import androidx.core.graphics.drawable.toBitmap
 import com.hoc081098.myapps.ui.theme.MyAppsTheme
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -122,7 +126,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun ListContent(
-  appInfoList: List<MainVM.AppInfo>?,
+  appInfoList: Map<LocalDate, List<AppInfo>>?,
   modifier: Modifier = Modifier,
 ) {
   if (appInfoList == null) {
@@ -148,43 +152,65 @@ private fun ListContent(
     return
   }
 
+  val iconSizePx = with(LocalDensity.current) { 48.dp.roundToPx() }
+
   LazyColumn(
     modifier = modifier
-      .fillMaxSize()
-      .padding(horizontal = 16.dp),
+      .fillMaxSize(),
     verticalArrangement = Arrangement.spacedBy(16.dp),
+    contentPadding = PaddingValues(16.dp),
   ) {
-    items(items = appInfoList) { appInfo ->
-      AppInfoItem(
-        modifier = Modifier.fillParentMaxWidth(),
-        appInfo = appInfo,
-      )
+    appInfoList.forEach { (k, v) ->
+      stickyHeader {
+        Text(
+          modifier = Modifier
+            .fillParentMaxWidth()
+            .background(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.8f))
+            .padding(16.dp),
+          text = DateFormatter.format(k),
+          color = MaterialTheme.colorScheme.onTertiaryContainer,
+          style = MaterialTheme.typography.titleMedium
+        )
+      }
+
+      items(
+        items = v,
+        key = { it.packageName }
+      ) { listItem ->
+        AppInfoItem(
+          modifier = Modifier.fillParentMaxWidth(),
+          appInfo = listItem,
+          iconSizePx = iconSizePx,
+        )
+      }
     }
   }
 }
 
 @Composable
 private fun AppInfoItem(
-  appInfo: MainVM.AppInfo,
+  appInfo: AppInfo,
+  iconSizePx: Int,
   modifier: Modifier = Modifier,
 ) {
-  val density = LocalDensity.current
-
   Row(
     modifier = modifier,
     verticalAlignment = Alignment.CenterVertically,
   ) {
     val bitmap = remember(appInfo.icon) {
       appInfo.icon
-        .toBitmap(
-          width = with(density) { 48.dp.roundToPx() },
-          height = with(density) { 48.dp.roundToPx() },
+        ?.toBitmap(
+          width = iconSizePx,
+          height = iconSizePx,
         )
-        .asImageBitmap()
+        ?.asImageBitmap()
+        ?: ImageBitmap(
+          width = iconSizePx,
+          height = iconSizePx,
+        )
     }
 
     Image(
-      modifier = Modifier.sizeIn(48.dp),
       bitmap = bitmap,
       contentDescription = null,
     )
@@ -197,7 +223,7 @@ private fun AppInfoItem(
       horizontalAlignment = Alignment.Start,
     ) {
       Text(
-        text = appInfo.name,
+        text = appInfo.name ?: "<unknown>",
         style = MaterialTheme.typography.bodyLarge,
       )
 
@@ -207,13 +233,13 @@ private fun AppInfoItem(
       )
 
       Text(
-        text = "Last time used: " + Formatter.format(appInfo.lastTimeUsed),
+        text = "Last time used: " + TimeFormatter.format(appInfo.lastTimeUsed),
         style = MaterialTheme.typography.bodyMedium,
         fontStyle = FontStyle.Italic,
       )
 
       Text(
-        text = "Last time visible: " + Formatter.format(appInfo.lastTimeVisible),
+        text = "Last time visible: " + TimeFormatter.format(appInfo.lastTimeVisible),
         style = MaterialTheme.typography.bodyMedium,
         fontStyle = FontStyle.Italic,
       )
@@ -221,9 +247,16 @@ private fun AppInfoItem(
   }
 }
 
-private val Formatter by lazy {
+private val TimeFormatter by lazy {
   DateTimeFormatter.ofPattern(
     "HH:mm:ss dd/MM/yyyy",
+    Locale.getDefault(),
+  )!!
+}
+
+private val DateFormatter by lazy {
+  DateTimeFormatter.ofPattern(
+    "dd/MM/yyyy",
     Locale.getDefault(),
   )!!
 }
