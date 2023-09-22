@@ -1,4 +1,5 @@
 @file:OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@file:Suppress("PrivatePropertyName")
 
 package com.hoc081098.myapps
 
@@ -19,7 +20,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.consumedWindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -79,7 +80,7 @@ class MainActivity : ComponentActivity() {
             Column(
               modifier = Modifier
                 .padding(innerPadding)
-                .consumedWindowInsets(innerPadding),
+                .consumeWindowInsets(innerPadding),
             ) {
               val searchTerm by vm.searchTerm.collectAsState()
               val appInfoList by vm.filteredAppInfoList.collectAsState()
@@ -90,6 +91,8 @@ class MainActivity : ComponentActivity() {
                   .padding(horizontal = 16.dp),
                 value = searchTerm,
                 onValueChange = vm::onSearchTermChange,
+                singleLine = true,
+                maxLines = 1,
               )
 
               Spacer(modifier = Modifier.height(16.dp))

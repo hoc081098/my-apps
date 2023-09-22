@@ -53,6 +53,7 @@ suspend fun getUsageStatsList(
         lastTimeVisible = lastTimeVisible.atZone(zoneId).toLocalDateTime(),
       )
     }
+    .distinctBy { it.id }
     .sortedByDescending { it.lastTimeUsed }
     .also { Log.d("getUsageStatsList", "Result: ${it.size}") }
 }
